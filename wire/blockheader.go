@@ -5,10 +5,12 @@
 package wire
 
 import (
+	"bytes"
 	"io"
 	"time"
 
 	"github.com/btcsuite/btcd/chainhash/v2"
+	"github.com/phoreproject/go-x11"
 )
 
 // MaxBlockHeaderPayload is the maximum number of bytes a block header can be.
@@ -44,10 +46,21 @@ type BlockHeader struct {
 const blockHeaderLen = 80
 
 // BlockHash computes the block identifier hash for the given block header.
+//
+// NUSACOIN: Nusacoin uses the X11 hash algorithm for block identifiers
+// (not SHA256d like Bitcoin). This fork is Nusacoin-only, so BlockHash
+// always uses X11.
 func (h *BlockHeader) BlockHash() chainhash.Hash {
-	return chainhash.DoubleHashRaw(func(w io.Writer) error {
-		return writeBlockHeader(w, 0, h)
-	})
+	var buf bytes.Buffer
+	if err := writeBlockHeader(&buf, 0, h); err != nil {
+		// This should never happen for an in-memory header.
+		panic(err)
+	}
+	hs, out := x11.New(), [32]byte{}
+	hs.Hash(buf.Bytes(), out[:])
+	// The raw X11 output is stored directly; chainhash.String() reverses
+	// bytes for display, matching nusacoind's block hash format.
+	return chainhash.Hash(out)
 }
 
 // BtcDecode decodes r using the bitcoin protocol encoding into the receiver.
