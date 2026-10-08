@@ -130,12 +130,15 @@ const (
 // parseBitcoindVersion parses the bitcoind version from its string
 // representation.
 func parseBitcoindVersion(version string) BitcoindVersion {
-	// Trim the version of its prefix and suffix to determine the
-	// appropriate version number.
-	version = strings.TrimPrefix(
-		strings.TrimSuffix(version, bitcoindVersionSuffix),
-		bitcoindVersionPrefix,
-	)
+	// Trim the version of its suffix, then strip any client-name prefix
+	// ("/Satoshi:", "/Nusa:", ...). Bitcoin Core forks that rebrand the
+	// client name (e.g. Nusacoin reports "/Nusa:0.26.60/") would otherwise
+	// fail the string comparisons below and be misdetected as pre-0.19.
+	version = strings.TrimSuffix(version, bitcoindVersionSuffix)
+	if idx := strings.Index(version, ":"); idx >= 0 {
+		version = version[idx+1:]
+	}
+	version = strings.TrimPrefix(version, "/")
 	switch {
 	case version < bitcoind19Str:
 		return BitcoindPre19
